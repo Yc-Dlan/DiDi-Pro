@@ -1,2 +1,5 @@
 # DiDi-Pro
-This is the repository for the major assignment of the specialized course “Fundamentals of Artificial Intelligence.”
+This is the repository for the major assignment of the specialized course “Fundamentals of Artificial Intelligence”.
+
+## 容器构建
+
