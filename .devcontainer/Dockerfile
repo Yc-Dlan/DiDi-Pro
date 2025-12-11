@@ -46,10 +46,18 @@ RUN pip install mysqlclient psycopg2-binary sqlalchemy
 #安装http请求库，及部分实用库
 RUN pip install requests pydantic python-multipart
 
+RUN pip install folium matplotlib seaborn plotly pandas
+
 USER root
 
 RUN echo "export PATH=\$HOME/.local/bin:\$PATH" >> /home/$USERNAME/.bashrc \
     && echo "set -gx PATH \$HOME/.local/bin \$PATH" >> /home/$USERNAME/.config/fish/config.fish
+
+USER yc-dlan
+
+WORKDIR /home/${USERNAME}
+
+CMD [ "/bin/bash" ]
 
 ENV PYTHONPATH = /home/$USERNAME/py_ws
 ENV PYTHONPATH = ~/py_ws
