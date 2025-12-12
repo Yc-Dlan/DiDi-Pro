@@ -4,6 +4,7 @@ import math
 from datetime import datetime, timedelta
 from typing import List, Dict
 
+
 # -------------------------- 网约车位置核心配置（可自定义） --------------------------
 # 生成车辆总数
 CAR_NUM = 200  
