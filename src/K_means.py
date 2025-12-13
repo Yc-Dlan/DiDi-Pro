@@ -17,10 +17,8 @@ from Car_generate import (
 from Order_generate import (
     generate_taxi_orders,
     TaxiOrder,
-    ORDER_NUM,
-    cal_km_by_lon_lat  # 复用你的距离计算函数
+    ORDER_NUM
 )
-
 
 class TaxiCarClusterMatcher:
     """
@@ -169,4 +167,3 @@ class TaxiCarClusterMatcher:
         
         self.subgroups = subgroups
         return self.subgroups
-

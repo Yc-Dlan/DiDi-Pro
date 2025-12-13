@@ -1,8 +1,9 @@
 import numpy as np
 from typing import List, Dict, Tuple, Optional
-from Order_generate import TaxiOrder, generate_taxi_orders, ORDER_NUM, cal_km_by_lon_lat
+from Order_generate import TaxiOrder, generate_taxi_orders, ORDER_NUM
 from Car_generate import NetCarLocation, generate_netcar_locations, CAR_NUM
 from K_means import TaxiCarClusterMatcher
+from lnglat_distance import get_amap_distance  # 导入高德地图距离计算函数
 
 class PSOOrderMatcher:
     """粒子群优化订单匹配器，处理子群体内的订单-车辆匹配"""
@@ -69,17 +70,17 @@ class PSOOrderMatcher:
             order = next(o for o in self.orders if o.order_id == order_id)
             car_state = temp_car_states[car_id]
             
-            # 计算车辆当前位置到订单起点的距离
-            start_dist = cal_km_by_lon_lat(
-                car_state["current_lon"], car_state["current_lat"],
-                order.start_lon, order.start_lat
-            )
+            # 计算车辆当前位置到订单起点的距离（使用高德API）
+            start_dist = get_amap_distance(
+                f"{car_state['current_lon']},{car_state['current_lat']}",
+                f"{order.start_lon},{order.start_lat}"
+            ) / 1000  # 转换为公里
             
-            # 计算订单起点到终点的距离
-            order_dist = cal_km_by_lon_lat(
-                order.start_lon, order.start_lat,
-                order.end_lon, order.end_lat
-            )
+            # 计算订单起点到终点的距离（使用高德API）
+            order_dist = get_amap_distance(
+                f"{order.start_lon},{order.start_lat}",
+                f"{order.end_lon},{order.end_lat}"
+            ) / 1000  # 转换为公里
             
             total_distance += start_dist + order_dist
             
