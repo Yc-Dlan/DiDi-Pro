@@ -189,8 +189,7 @@ class SubgroupPSOMatcher:
         return match_result, self.best_global_fitness
 
 # -------------------------- PSO结果保存函数（独立） --------------------------
-def save_pso_results(subgroups: Dict[int, Tuple[List[TaxiOrder], List[NetCarLocation]]],
-                     pso_results: Dict[int, Tuple[Dict[int, Optional[TaxiOrder]], float]]):
+def save_pso_results(subgroups, pso_results):
     """保存PSO匹配结果（仅依赖基础数据类型，无耦合）"""
     Path(STORAGE_DIR).mkdir(parents=True, exist_ok=True)
     save_path = f"{STORAGE_DIR}/pso_matching_results.json"
