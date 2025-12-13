@@ -5,7 +5,7 @@ from typing import List, Dict
 
 # -------------------------- 打车订单核心配置（可自定义） --------------------------
 # 生成订单总数
-ORDER_NUM = 20
+ORDER_NUM = 100
 # 目标城市经纬度范围
 CITY_LON_RANGE = (121.38, 121.55)  # 经度
 CITY_LAT_RANGE = (31.18, 31.35)    # 纬度

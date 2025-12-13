@@ -51,13 +51,13 @@ class TaxiCarClusterMatcher:
         self.match_distances: Dict[int, float] = {}  # 聚类中心匹配的距离
         self.subgroups: Dict[int, Tuple[List[TaxiOrder], List[NetCarLocation]]] = {}  # 拆分后的子群体
 
-    def calculate_order_midpoint(start_lon: float, start_lat: float, end_lon: float, end_lat: float) -> Tuple[float, float]:
+    def calculate_order_midpoint(self, start_lon: float, start_lat: float, end_lon: float, end_lat: float) -> Tuple[float, float]:
         """计算订单起点-终点的中点坐标（聚类专用）"""
         mid_lon = (start_lon + end_lon) / 2
         mid_lat = (start_lat + end_lat) / 2
         return mid_lon, mid_lat
 
-    def calculate_euclidean_distance(coord1: np.ndarray, coord2: np.ndarray) -> float:
+    def calculate_euclidean_distance(self, coord1: np.ndarray, coord2: np.ndarray) -> float:
         """计算两点间的欧氏距离（聚类专用）"""
         return np.linalg.norm(coord1 - coord2)
 
