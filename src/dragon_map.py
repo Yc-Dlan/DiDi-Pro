@@ -17,7 +17,7 @@ class Color(Enum):
     ORANGE = (255, 165, 0)     # 橙色
     YELLOW = (255, 255, 0)     # 黄色（接人路径：车辆→用户）
     CYAN = (0, 255, 255)       # 青色（送人路径：用户→目标地址）
-    PINK = (255, 192, 203)     # 粉色（扩展）
+    PINK = (255, 192, 203)     # 粉色 （喜欢的颜色额，待定）
 
     @property
     def rgb(self):
@@ -27,15 +27,15 @@ class Color(Enum):
 GRID_SIZE = 50          # 格子大小
 GRID_ROWS = 20          # 网格行数
 GRID_COLS = 20          # 网格列数
-WINDOW_WIDTH = GRID_COLS * GRID_SIZE
-WINDOW_HEIGHT = GRID_ROWS * GRID_SIZE
+WINDOW_WIDTH = GRID_COLS * GRID_SIZE 
+WINDOW_HEIGHT = GRID_ROWS * GRID_SIZE 
 
 # 随机生成参数
 COUNT_user = 8   # 用户数量
 COUNT_car = 10   # 车辆数量
 COUNT_stop = 20  # 禁止区域数量
 
-# 混合算法参数
+# 混合算法(A*+蚁群算法)参数
 ALPHA = 1.0              # 信息素重要程度因子
 BETA = 5.0               # 启发函数重要程度因子
 RHO = 0.3                # 信息素挥发因子
@@ -44,6 +44,52 @@ MAX_ACO_ITERATIONS = 15  # 蚁群最大迭代次数
 ANT_COUNT = 20           # 蚂蚁数量
 INITIAL_PHEROMONE = 0.5  # 初始信息素浓度
 
+
+
+#===================== 画图函数 =====================#
+def generate_random_xy(count, max_x, max_y, avoid=None):
+    """生成不重复的(x,y)坐标，支持避障"""
+    if avoid is None:
+        avoid = set()
+    else:
+        avoid = set(avoid)
+    coords = []
+    used = set()
+    while len(coords) < count:
+        x = random.randint(0, max_x - 1)
+        y = random.randint(0, max_y - 1)
+        if (x, y) not in used and (x, y) not in avoid:
+            used.add((x, y))
+            coords.append((x, y))
+    return coords
+
+def draw_grid(screen, grid_color: Color = Color.WHITE):
+    """绘制网格线"""
+    for x in range(0, WINDOW_WIDTH, GRID_SIZE):
+        pygame.draw.line(screen, grid_color.rgb, (x, 0), (x, WINDOW_HEIGHT), 1)
+    for y in range(0, WINDOW_HEIGHT, GRID_SIZE):
+        pygame.draw.line(screen, grid_color.rgb, (0, y), (WINDOW_WIDTH, y), 1)
+
+def draw_single_block(screen, x, y, block_color, value="", text_color: Color = Color.WHITE):
+    """绘制单个方块"""
+    block_rgb = block_color.rgb if isinstance(block_color, Color) else block_color
+    px = x * GRID_SIZE
+    py = y * GRID_SIZE
+    pygame.draw.rect(screen, block_rgb, (px, py, GRID_SIZE, GRID_SIZE))
+    if value != "":
+        font = pygame.font.SysFont(None, int(GRID_SIZE * 0.7))
+        text = font.render(str(value), True, text_color.rgb)
+        text_rect = text.get_rect(center=(px + GRID_SIZE//2, py + GRID_SIZE//2))
+        screen.blit(text, text_rect)
+
+def draw_path(screen, path, color=Color.YELLOW, width=3):
+    """绘制路径"""
+    if len(path) < 2:
+        return
+    pixel_path = [(x*GRID_SIZE + GRID_SIZE//2, y*GRID_SIZE + GRID_SIZE//2) for x,y in path]
+    pygame.draw.lines(screen, color.rgb, False, pixel_path, width)
+
+#*************************路径规划（A*+蚁群算法优化）**********************#
 # ===================== 混合算法核心类 =====================
 class HybridPathPlanner:
     def __init__(self, obstacles):
@@ -224,49 +270,7 @@ class HybridPathPlanner:
                 self.pheromone_map[x][y] = (1 - RHO) * self.pheromone_map[x][y] + pheromone_deposit
         
         return final_path, final_dist
-    
-    def find_best_car_for_user_by_total_distance(self, user_pos, dest_pos, cars, available_cars):
-        """
-        以总距离（车辆到用户 + 用户到目的地）最小化为目标，为单个用户找最佳车辆
-        :param available_cars: 可用的车辆列表（避免重复分配）
-        :return: 最佳车辆、路径信息、总距离
-        """
-        min_total_distance = float('inf')
-        best_car = None
-        best_car_to_user_path = []
-        best_car_to_user_dist = float('inf')
-        best_user_to_dest_path = []
-        best_user_to_dest_dist = float('inf')
-        
-        # 先计算用户到目的地的路径和距离（对所有车辆都一样）
-        user_to_dest_path, user_to_dest_dist = self.hybrid_find_path(user_pos, dest_pos)
-        
-        if user_to_dest_dist == float('inf'):
-            return None, [], float('inf'), [], float('inf'), float('inf')
-        
-        # 遍历所有可用车辆，找总距离最小的
-        for car in cars:
-            if car in available_cars:
-                # 修复：hybrid_find_path仅返回2个值，解包数量匹配
-                car_to_user_path, car_to_user_dist = self.hybrid_find_path(car, user_pos)
-                
-                if car_to_user_dist == float('inf'):
-                    continue
-                
-                # 计算总距离
-                total_distance = car_to_user_dist + user_to_dest_dist
-                
-                if total_distance < min_total_distance:
-                    min_total_distance = total_distance
-                    best_car = car
-                    best_car_to_user_path = car_to_user_path
-                    best_car_to_user_dist = car_to_user_dist
-                    best_user_to_dest_path = user_to_dest_path
-                    best_user_to_dest_dist = user_to_dest_dist
-        
-        return best_car, best_car_to_user_path, best_car_to_user_dist, \
-               best_user_to_dest_path, best_user_to_dest_dist, min_total_distance
-    
+  
     def match_users_by_total_distance(self, cars, users, user_dests):
         """
         以总距离最小化为目标，为所有用户匹配车辆
@@ -325,63 +329,11 @@ class HybridPathPlanner:
         
         return matched
 
-# ===================== 辅助函数 =====================
-def generate_random_xy(count, max_x, max_y, avoid=None):
-    """生成不重复的(x,y)坐标，支持避障"""
-    if avoid is None:
-        avoid = set()
-    else:
-        avoid = set(avoid)
-    coords = []
-    used = set()
-    while len(coords) < count:
-        x = random.randint(0, max_x - 1)
-        y = random.randint(0, max_y - 1)
-        if (x, y) not in used and (x, y) not in avoid:
-            used.add((x, y))
-            coords.append((x, y))
-    return coords
-
-def draw_grid(screen, grid_color: Color = Color.WHITE):
-    """绘制网格线"""
-    for x in range(0, WINDOW_WIDTH, GRID_SIZE):
-        pygame.draw.line(screen, grid_color.rgb, (x, 0), (x, WINDOW_HEIGHT), 1)
-    for y in range(0, WINDOW_HEIGHT, GRID_SIZE):
-        pygame.draw.line(screen, grid_color.rgb, (0, y), (WINDOW_WIDTH, y), 1)
-
-def draw_single_block(screen, x, y, block_color, value="", text_color: Color = Color.WHITE):
-    """绘制单个方块"""
-    block_rgb = block_color.rgb if isinstance(block_color, Color) else block_color
-    px = x * GRID_SIZE
-    py = y * GRID_SIZE
-    pygame.draw.rect(screen, block_rgb, (px, py, GRID_SIZE, GRID_SIZE))
-    if value != "":
-        font = pygame.font.SysFont(None, int(GRID_SIZE * 0.7))
-        text = font.render(str(value), True, text_color.rgb)
-        text_rect = text.get_rect(center=(px + GRID_SIZE//2, py + GRID_SIZE//2))
-        screen.blit(text, text_rect)
-
-def draw_path(screen, path, color=Color.YELLOW, width=3):
-    """绘制路径"""
-    if len(path) < 2:
-        return
-    pixel_path = [(x*GRID_SIZE + GRID_SIZE//2, y*GRID_SIZE + GRID_SIZE//2) for x,y in path]
-    pygame.draw.lines(screen, color.rgb, False, pixel_path, width)
-
-def draw_info_panel(screen, info_text, y_offset=0):
-    """绘制信息面板"""
-    font = pygame.font.SysFont(None, 24)
-    lines = info_text.split('\n')
-    for i, line in enumerate(lines):
-        text = font.render(line, True, Color.WHITE.rgb)
-        screen.blit(text, (10, 10 + i*25 + y_offset))
-
 def print_matching_summary(match_result, user_dests):
     """打印详细的匹配摘要信息"""
     print("\n" + "="*80)
-    print("匹配结果摘要")
+    print("匹配结果总结")
     print("="*80)
-    
     total_distance = 0
     successful_matches = 0
     user_distances = []
@@ -419,34 +371,22 @@ def print_matching_summary(match_result, user_dests):
     if successful_matches > 0:
         avg_distance = total_distance / successful_matches
         print(f"  平均每单距离: {avg_distance:.2f} 格")
-        
-        # 按总距离排序
-        user_distances.sort(key=lambda x: x[1] if x[1] != float('inf') else float('inf'))
-        print(f"\n  距离排序 (从近到远):")
-        for user_id, dist in user_distances:
-            if dist != float('inf'):
-                print(f"    用户{user_id}: {dist} 格")
-            else:
-                print(f"    用户{user_id}: 无匹配")
-    
-    print("="*80)
-    
+
     return total_distance, successful_matches
 
-# ===================== 主函数 =====================
+#******************************主函数**************************************#
 def main():
     pygame.init()
     screen = pygame.display.set_mode((WINDOW_WIDTH, WINDOW_HEIGHT))
-    pygame.display.set_caption("混合算法路径规划 - 以总距离最小化为目标")
+    pygame.display.set_caption("A*加蚁群算法")
     clock = pygame.time.Clock()
-    
-    # 生成初始场景
+    # ***********************生成场景：障碍，用户，目的地，车辆*******************#
     def generate_scene():
-        print("\n生成新场景...")
-        stop_place = generate_random_xy(COUNT_stop, GRID_COLS, GRID_ROWS)
+        stop_place = generate_random_xy(COUNT_stop, GRID_COLS, GRID_ROWS)#障碍
         user_list = generate_random_xy(COUNT_user, GRID_COLS, GRID_ROWS, avoid=stop_place)
         user_dests = {}
         avoid_dests = stop_place + user_list
+        #防止生成重复在同一个块
         for u in user_list:
             dest = generate_random_xy(1, GRID_COLS, GRID_ROWS, avoid=avoid_dests)[0]
             user_dests[u] = dest
@@ -457,92 +397,62 @@ def main():
         return stop_place, user_list, user_dests, car_list
     
     stop_place, user_list, user_dests, car_list = generate_scene()
+    screen.fill(Color.BLACK.rgb)
+    draw_grid(screen, Color.WHITE)
+    # 1. 绘制禁止区域
+    for (x, y) in stop_place:
+        draw_single_block(screen, x, y, Color.RED, value="X") 
+    # 2. 绘制用户（标注U+序号）
+    for idx, (x, y) in enumerate(user_list):
+        draw_single_block(screen, x, y, Color.GREEN, value=f"U{idx}")
     
+    # 3. 绘制目的地
+    for idx, (user_pos, dest_pos) in enumerate(user_dests.items()):
+        dx, dy = dest_pos
+        draw_single_block(screen, dx, dy, Color.PURPLE, value=f"D{idx}")
+    
+    # 4. 绘制车辆（标注C+序号，避免和目的地重复）
+    for idx, (x, y) in enumerate(car_list):
+        draw_single_block(screen, x, y, Color.BLUE, value=f"C{idx}")
+
+    #************************路径规划********************#
     # 初始化混合路径规划器
     planner = HybridPathPlanner(stop_place)
     
     # 进行匹配
     print("\n开始路径规划和匹配...")
     match_result = planner.match_users_by_total_distance(car_list, user_list, user_dests)
-    
+
     # 打印详细的匹配信息
     total_distance, successful_matches = print_matching_summary(match_result, user_dests)
-    
-    # 主循环
+    # **********************主循环控制****************#
     running = True
-    show_pheromone = False
-    algorithm_mode = "总距离最小化匹配"
-    
-    while running:
-        screen.fill(Color.BLACK.rgb)
-        draw_grid(screen, Color.GRAY)
-        
-        # 绘制禁止区域
-        for (x, y) in stop_place:
-            draw_single_block(screen, x, y, Color.RED, value="X")
-        
-        # 如果显示信息素，绘制信息素热度图
-        if show_pheromone:
-            pheromone_max = np.max(planner.pheromone_map)
-            if pheromone_max > 0:
-                for x in range(GRID_COLS):
-                    for y in range(GRID_ROWS):
-                        if (x, y) not in stop_place:
-                            intensity = planner.pheromone_map[x][y] / pheromone_max
-                            color_value = int(100 + 155 * intensity)
-                            pheromone_color = (color_value, 0, color_value)
-                            draw_single_block(screen, x, y, pheromone_color, "")
-        
-        # 绘制用户、目标地址、匹配车辆及路径
+    while (running==True):
+
+        # 路径
         for idx, (user_pos, match_info) in enumerate(match_result.items(), 1):
             car_pos, car2user_path, _, user2dest_path, _, total_dist = match_info
-            ux, uy = user_pos
             dest_pos = user_dests[user_pos]
-            dx, dy = dest_pos
             
-            # 绘制用户
-            draw_single_block(screen, ux, uy, Color.GREEN, value=f"U{idx}")
-            # 绘制用户目标地址
-            draw_single_block(screen, dx, dy, Color.PURPLE, value=f"D{idx}")
-            # 绘制匹配车辆（若有）
+            # 绘制匹配路径
             if car_pos:
-                cx, cy = car_pos
-                draw_single_block(screen, cx, cy, Color.BLUE, value=f"C{idx}")
                 # 绘制车到用户路径（黄色）
                 draw_path(screen, car2user_path, Color.YELLOW, width=4)
                 # 绘制用户到目的地路径（青色）
                 draw_path(screen, user2dest_path, Color.CYAN, width=3)
-                
-                # 在用户旁边显示总距离
-                font = pygame.font.SysFont(None, 20)
-                distance_text = font.render(f"{total_dist}", True, Color.ORANGE.rgb)
-                screen.blit(distance_text, (ux * GRID_SIZE + 5, uy * GRID_SIZE - 20))
-        
-
-        
-        # 事件处理
+        # 退出
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 running = False
-            
-            # 空格键：重新生成场景
-            if event.type == pygame.KEYDOWN and event.key == pygame.K_SPACE:
-                stop_place, user_list, user_dests, car_list = generate_scene()
-                planner = HybridPathPlanner(stop_place)
-                match_result = planner.match_users_by_total_distance(car_list, user_list, user_dests)
-                
-                # 打印详细的匹配信息
-                total_distance, successful_matches = print_matching_summary(match_result, user_dests)
-            
-            # P键：切换信息素显示
-            if event.type == pygame.KEYDOWN and event.key == pygame.K_p:
-                show_pheromone = not show_pheromone
-        
+        #延时刷新       
         pygame.display.flip()
-        clock.tick(30)
-    
+        clock.tick(20)
+
+
+    #结束，退出
     pygame.quit()
-    sys.exit()
+    sys.exit()    
+
 
 if __name__ == "__main__":
     main()
