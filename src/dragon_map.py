@@ -105,7 +105,7 @@ class HybridPathPlanner:
     def get_neighbors(self, x, y):
         """获取上下左右合法邻居（非障碍+在网格内）"""
         neighbors = []
-        directions = [(0,1), (0,-1), (1,0), (-1,0)]  # 四方向
+        directions = [(0,1), (0,-1), (1,0), (-1,0)]  
         for dx, dy in directions:
             nx = x + dx
             ny = y + dy
@@ -172,10 +172,8 @@ class HybridPathPlanner:
         best_path = initial_path
         best_length = len(initial_path) - 1
         
-        # 局部信息素矩阵
         local_pheromone = self.pheromone_map.copy()
         
-        # 强化初始路径上的信息素
         for (x, y) in initial_path:
             local_pheromone[x][y] += 5.0
         
