@@ -2,6 +2,7 @@ import random
 import json
 import math
 from typing import List, Dict
+from Distance_transfer import cal_km_by_lon_lat
 
 # -------------------------- 打车订单核心配置（可自定义） --------------------------
 # 生成订单总数
@@ -13,20 +14,11 @@ CITY_LAT_RANGE = (31.18, 31.35)    # 纬度
 MAX_PASSENGER = 4
 # 拼车订单比例
 CARPOOL_RATIO = 0.2  # 20%拼车订单
+# 拼车时最大乘客数
+MAX_CARPOOL_PASSENGER = 2
 # 上下车点距离限制（公里）- 仅用于校验合理性，不输出
 MIN_DISTANCE_KM = 0.5   # 最小距离（避免过近订单）
 MAX_DISTANCE_KM = 30    # 最大距离（避免超远订单）
-
-# -------------------------- 工具函数 --------------------------
-def cal_km_by_lon_lat(lon1: float, lat1: float, lon2: float, lat2: float) -> float:
-    """经纬度转换为公里数(WGS84坐标系) - 仅用于校验上下车点距离合理性"""
-    lon1_rad, lat1_rad = math.radians(lon1), math.radians(lat1)
-    lon2_rad, lat2_rad = math.radians(lon2), math.radians(lat2)
-    d_lon = lon2_rad - lon1_rad
-    d_lat = lat2_rad - lat1_rad
-    a = math.sin(d_lat/2)**2 + math.cos(lat1_rad) * math.cos(lat2_rad) * math.sin(d_lon/2)**2
-    c = 2 * math.atan2(math.sqrt(a), math.sqrt(1-a))
-    return round(6371.0 * c, 2)
 
 # -------------------------- 打车订单类（仅生成逻辑） --------------------------
 class TaxiOrder:
@@ -70,8 +62,13 @@ class TaxiOrder:
                 break
 
     def _init_passenger_num(self):
-        """初始化乘客数（1~MAX_PASSENGER随机）"""
-        self.passenger_num = random.randint(1, MAX_PASSENGER)
+        """初始化乘客数：拼车订单≤2，非拼车订单1~MAX_PASSENGER"""
+        if self.is_carpool:
+            # 拼车订单：乘客数随机1~2
+            self.passenger_num = random.randint(1, MAX_CARPOOL_PASSENGER)
+        else:
+            # 非拼车订单：乘客数随机1~MAX_PASSENGER
+            self.passenger_num = random.randint(1, MAX_PASSENGER)
 
 
 def generate_taxi_orders(num: int):
@@ -81,5 +78,4 @@ def generate_taxi_orders(num: int):
     for _ in range(num):
         orders.append(TaxiOrder())
     return orders
-
 

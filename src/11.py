@@ -1,10 +1,15 @@
 import numpy as np
+import matplotlib.pyplot as plt
 from typing import List, Dict, Tuple, Optional, DefaultDict
 from collections import defaultdict
 from Order_generate import TaxiOrder, generate_taxi_orders, ORDER_NUM
 from Car_generate import NetCarLocation, generate_netcar_locations, CAR_NUM
 from Distance_transfer import cal_km_by_lon_lat
 from K_means import TaxiCarClusterMatcher
+
+# 设置中文字体（避免乱码）
+plt.rcParams['font.sans-serif'] = ['SimHei']  # 黑体
+plt.rcParams['axes.unicode_minus'] = False    # 正常显示负号
 
 class PSOOrderMatcher:
     """粒子群优化订单匹配器（多目标加权+归一化惩罚）"""
@@ -13,6 +18,7 @@ class PSOOrderMatcher:
         self,
         subgroup_orders: List[TaxiOrder],
         subgroup_cars: List[NetCarLocation],
+        subgroup_id: str,  # 新增：子群ID（用于可视化标注）
         w: float = 0.5,  # PSO惯性权重
         c1: float = 1.0, # 认知系数
         c2: float = 1.0, # 社会系数
@@ -32,6 +38,7 @@ class PSOOrderMatcher:
     ):
         self.orders = subgroup_orders
         self.cars = subgroup_cars
+        self.subgroup_id = subgroup_id  # 新增：子群ID
         self.w = w
         self.c1 = c1
         self.c2 = c2
@@ -67,6 +74,9 @@ class PSOOrderMatcher:
         self.gbest = None
         self.pbest_fitness = []
         self.gbest_fitness = float('inf')
+        
+        # 新增：记录迭代过程的全局最优适应度（用于绘制收敛曲线）
+        self.convergence_history = []
         
         # 基础统计值
         self.order_ids = [o.order_id for o in self.orders]
@@ -237,8 +247,9 @@ class PSOOrderMatcher:
     def optimize(self) -> Tuple[Dict[str, str], float]:
         """执行PSO优化，返回最优匹配和适应度"""
         self._initialize_particles()
+        self.convergence_history = []  # 重置收敛历史
 
-        for _ in range(self.max_iter):
+        for iter_num in range(self.max_iter):
             # 计算所有粒子的适应度并更新最优
             for i in range(self.pop_size):
                 fitness = self._calculate_fitness(self.particles[i])
@@ -250,11 +261,148 @@ class PSOOrderMatcher:
                 if fitness < self.gbest_fitness:
                     self.gbest_fitness = fitness
                     self.gbest = self.particles[i].copy()
+            # 记录当前迭代的全局最优适应度
+            self.convergence_history.append(self.gbest_fitness)
             # 更新粒子位置
             for i in range(self.pop_size):
                 self._update_velocity_position(i)
 
         return self.gbest, self.gbest_fitness
+
+    # ========== 新增：可视化函数 ==========
+    def plot_convergence_curve(self, save_path: str = None):
+        """绘制PSO收敛曲线（迭代次数 vs 全局最优适应度）"""
+        plt.figure(figsize=(10, 6))
+        plt.plot(range(1, self.max_iter + 1), self.convergence_history, 
+                 marker='o', markersize=4, linewidth=2, color='#1f77b4')
+        plt.title(f'子群{self.subgroup_id} PSO收敛曲线', fontsize=14)
+        plt.xlabel('迭代次数', fontsize=12)
+        plt.ylabel('全局最优适应度（越小越好）', fontsize=12)
+        plt.grid(True, alpha=0.3)
+        plt.tight_layout()
+        if save_path:
+            plt.savefig(f'{save_path}_convergence_{self.subgroup_id}.png', dpi=300, bbox_inches='tight')
+        plt.show()
+
+    def plot_order_car_distribution(self, best_matching: Dict[str, str], save_path: str = None):
+        """绘制订单-车辆空间分布（经纬度）+ 匹配关系"""
+        plt.figure(figsize=(12, 8))
+        
+        # 1. 绘制车辆位置（不同颜色区分车辆）
+        car_colors = plt.cm.tab10(np.linspace(0, 1, len(self.cars)))
+        car_lon = [self.car_states[car_id]['current_lon'] for car_id in self.car_ids]
+        car_lat = [self.car_states[car_id]['current_lat'] for car_id in self.car_ids]
+        for i, car_id in enumerate(self.car_ids):
+            plt.scatter(car_lon[i], car_lat[i], 
+                        s=200, c=[car_colors[i]], label=f'车辆{car_id}', 
+                        edgecolors='black', linewidth=1)
+        
+        # 2. 绘制订单起点/终点 + 匹配关系
+        for order_id, car_id in best_matching.items():
+            order = self.order_id_map[order_id]
+            # 找到车辆颜色
+            car_idx = self.car_ids.index(car_id)
+            color = car_colors[car_idx]
+            
+            # 订单起点（圆形）
+            plt.scatter(order.start_lon, order.start_lat, 
+                        s=80, c=[color], marker='o', edgecolors='black', linewidth=1)
+            # 订单终点（三角形）
+            plt.scatter(order.end_lon, order.end_lat, 
+                        s=80, c=[color], marker='^', edgecolors='black', linewidth=1)
+            # 绘制订单行驶路径
+            plt.plot([order.start_lon, order.end_lon], [order.start_lat, order.end_lat], 
+                     c=color, linewidth=1.5, alpha=0.7)
+            # 绘制车辆到订单起点的空驶路径
+            car_lon = self.car_states[car_id]['current_lon']
+            car_lat = self.car_states[car_id]['current_lat']
+            plt.plot([car_lon, order.start_lon], [car_lat, order.start_lat], 
+                     c=color, linewidth=1, alpha=0.5, linestyle='--')
+        
+        plt.title(f'子群{self.subgroup_id} 订单-车辆匹配空间分布', fontsize=14)
+        plt.xlabel('经度', fontsize=12)
+        plt.ylabel('纬度', fontsize=12)
+        plt.legend(loc='upper right', bbox_to_anchor=(1.2, 1))
+        plt.grid(True, alpha=0.3)
+        plt.tight_layout()
+        if save_path:
+            plt.savefig(f'{save_path}_distribution_{self.subgroup_id}.png', dpi=300, bbox_inches='tight')
+        plt.show()
+
+    def plot_car_order_distribution(self, best_matching: Dict[str, str], save_path: str = None):
+        """绘制车辆订单分配数量分布（柱状图）"""
+        car_order_count = defaultdict(int)
+        for oid, cid in best_matching.items():
+            car_order_count[cid] += 1
+        
+        # 排序便于查看
+        car_ids_sorted = sorted(car_order_count.keys())
+        order_counts = [car_order_count[cid] for cid in car_ids_sorted]
+        
+        plt.figure(figsize=(10, 6))
+        bars = plt.bar(car_ids_sorted, order_counts, color='#ff7f0e', alpha=0.8)
+        # 绘制理论平均值线
+        plt.axhline(y=self.avg_orders_per_car, color='red', linestyle='--', 
+                    label=f'理论平均值：{self.avg_orders_per_car:.2f}')
+        
+        # 在柱子上标注数值
+        for bar, cnt in zip(bars, order_counts):
+            plt.text(bar.get_x() + bar.get_width()/2, bar.get_height() + 0.1, 
+                     f'{cnt}', ha='center', fontsize=10)
+        
+        plt.title(f'子群{self.subgroup_id} 车辆订单分配数量', fontsize=14)
+        plt.xlabel('车辆ID', fontsize=12)
+        plt.ylabel('分配订单数', fontsize=12)
+        plt.legend()
+        plt.grid(True, alpha=0.3, axis='y')
+        plt.tight_layout()
+        if save_path:
+            plt.savefig(f'{save_path}_car_order_{self.subgroup_id}.png', dpi=300, bbox_inches='tight')
+        plt.show()
+
+# ========== 全局可视化函数 ==========
+def plot_subgroup_metrics(all_results: Dict, save_path: str = None):
+    """绘制各子群关键指标对比（适应度、分配不均、未分配订单数）"""
+    subgroup_ids = sorted(all_results.keys())
+    fitness_list = [all_results[sid]['best_fitness'] for sid in subgroup_ids]
+    imbalance_list = [all_results[sid]['imbalance_total'] for sid in subgroup_ids]
+    
+    # 计算未分配订单数
+    unassigned_list = []
+    for sid in subgroup_ids:
+        best_matching = all_results[sid]['best_matching']
+        n_orders = len([o for o in best_matching.keys()])
+        assigned = len(best_matching)
+        unassigned_list.append(n_orders - assigned)
+    
+    # 绘制子图
+    fig, axes = plt.subplots(1, 3, figsize=(18, 6))
+    
+    # 1. 最优适应度
+    axes[0].bar(subgroup_ids, fitness_list, color='#1f77b4', alpha=0.8)
+    axes[0].set_title('各子群最优适应度', fontsize=14)
+    axes[0].set_xlabel('子群ID', fontsize=12)
+    axes[0].set_ylabel('适应度（越小越好）', fontsize=12)
+    axes[0].grid(True, alpha=0.3, axis='y')
+    
+    # 2. 总分配不均值
+    axes[1].bar(subgroup_ids, imbalance_list, color='#2ca02c', alpha=0.8)
+    axes[1].set_title('各子群总分配不均值', fontsize=14)
+    axes[1].set_xlabel('子群ID', fontsize=12)
+    axes[1].set_ylabel('超出平均订单数总和', fontsize=12)
+    axes[1].grid(True, alpha=0.3, axis='y')
+    
+    # 3. 未分配订单数
+    axes[2].bar(subgroup_ids, unassigned_list, color='#d62728', alpha=0.8)
+    axes[2].set_title('各子群未分配订单数', fontsize=14)
+    axes[2].set_xlabel('子群ID', fontsize=12)
+    axes[2].set_ylabel('未分配订单数', fontsize=12)
+    axes[2].grid(True, alpha=0.3, axis='y')
+    
+    plt.tight_layout()
+    if save_path:
+        plt.savefig(f'{save_path}_subgroup_metrics.png', dpi=300, bbox_inches='tight')
+    plt.show()
 
 def main():
     # 生成数据
@@ -271,6 +419,8 @@ def main():
 
     # 子群PSO匹配
     all_results = {}
+    all_matcher = {}  # 保存每个子群的匹配器实例（用于可视化）
+    
     for subgroup_id, (sub_orders, sub_cars) in subgroups.items():
         print(f"\n处理子群 {subgroup_id}：{len(sub_orders)}订单，{len(sub_cars)}车辆")
         if not sub_orders or not sub_cars:
@@ -280,6 +430,7 @@ def main():
         # 初始化PSO匹配器（自定义多目标权重和k值）
         pso_matcher = PSOOrderMatcher(
             sub_orders, sub_cars,
+            subgroup_id=str(subgroup_id),  # 传入子群ID
             w=0.7, c1=1.2, c2=1.2,
             max_iter=100, pop_size=50,
             # 归一化k值（可根据需求调整）
@@ -289,6 +440,7 @@ def main():
             empty_weight=1.5  # 空驶路程权重
         )
         best_matching, best_fitness = pso_matcher.optimize()
+        all_matcher[subgroup_id] = pso_matcher
 
         # 统计结果
         car_order_count = defaultdict(int)
@@ -310,6 +462,17 @@ def main():
         print(f"总分配不均值：{all_results[subgroup_id]['imbalance_total']:.2f}")
         for cid, cnt in car_order_count.items():
             print(f"车辆 {cid} 分配订单数：{cnt}（超出平均：{cnt - pso_matcher.avg_orders_per_car:.2f}）")
+        
+        # ========== 绘制当前子群的可视化图表 ==========
+        # 1. PSO收敛曲线
+        pso_matcher.plot_convergence_curve()
+        # 2. 订单-车辆空间分布
+        pso_matcher.plot_order_car_distribution(best_matching)
+        # 3. 车辆订单分配数量
+        pso_matcher.plot_car_order_distribution(best_matching)
+    
+    # ========== 绘制所有子群的指标对比 ==========
+    plot_subgroup_metrics(all_results)
 
 if __name__ == "__main__":
     main()
