@@ -24,25 +24,25 @@ class Color(Enum):
         return self.value
 
 # ===================== 全局配置 =====================
-GRID_SIZE = 50          # 格子大小
+GRID_SIZE = 40          # 格子大小
 GRID_ROWS = 20          # 网格行数
 GRID_COLS = 20          # 网格列数
 WINDOW_WIDTH = GRID_COLS * GRID_SIZE 
 WINDOW_HEIGHT = GRID_ROWS * GRID_SIZE 
 
 # 随机生成参数
-COUNT_user = 8   # 用户数量
-COUNT_car = 10   # 车辆数量
+COUNT_user = 20   # 用户数量
+COUNT_car = 22   # 车辆数量
 COUNT_stop = 20  # 禁止区域数量
 
 # 混合算法(A*+蚁群算法)参数
-ALPHA = 1.0              # 信息素重要程度因子
-BETA = 5.0               # 启发函数重要程度因子
-RHO = 0.3                # 信息素挥发因子
-Q = 50                   # 信息素增量常数
-MAX_ACO_ITERATIONS = 15  # 蚁群最大迭代次数
-ANT_COUNT = 20           # 蚂蚁数量
-INITIAL_PHEROMONE = 0.5  # 初始信息素浓度
+ALPHA = 1             # 信息素重要程度因子1
+BETA = 5              # 启发函数重要程度因子5
+RHO = 0.3                # 信息素挥发因子0.3
+Q = 50                   # 信息素增量常数50
+MAX_ACO_ITERATIONS = 15  # 蚁群最大迭代次数15
+ANT_COUNT = 20           # 蚂蚁数量20
+INITIAL_PHEROMONE = 0.5  # 初始信息素浓度0.5
 
 
 
@@ -327,6 +327,178 @@ class HybridPathPlanner:
         
         return matched
 
+    def pure_a_star(self, start, end):
+    #"""纯A*算法（不使用信息素）"""
+     return self.a_star_with_pheromone(start, end, use_pheromone=False)
+
+    def pure_aco(self, start, end):
+        """纯蚁群算法（不依赖A*初始路径）"""
+        if start == end:
+            return [], 0
+        if start in self.obstacles or end in self.obstacles:
+            return [], float('inf')
+        
+        best_path = []
+        best_length = float('inf')
+        local_pheromone = np.ones((self.cols, self.rows)) * INITIAL_PHEROMONE
+        
+        for iteration in range(MAX_ACO_ITERATIONS):
+            ant_paths = []
+            ant_lengths = []
+            
+            for ant in range(ANT_COUNT):
+                current = start
+                path = [current]
+                visited = set([current])
+                
+                while current != end:
+                    neighbors = self.get_neighbors(*current)
+                    neighbors = [n for n in neighbors if n not in visited]
+                    
+                    if not neighbors:
+                        break  # 陷入死胡同
+                    
+                    # 计算选择概率
+                    probabilities = []
+                    for neighbor in neighbors:
+                        tau = local_pheromone[neighbor[0]][neighbor[1]] ** ALPHA
+                        eta = (1.0 / (self.heuristic(neighbor, end) + 1e-6)) ** BETA
+                        probabilities.append(tau * eta)
+                    
+                    # 轮盘赌选择
+                    total = sum(probabilities)
+                    if total == 0:
+                        next_pos = random.choice(neighbors)
+                    else:
+                        rand_val = random.uniform(0, total)
+                        cumulative = 0
+                        for i, neighbor in enumerate(neighbors):
+                            cumulative += probabilities[i]
+                            if cumulative >= rand_val:
+                                next_pos = neighbor
+                                break
+                        else:
+                            next_pos = neighbors[-1]
+                    
+                    path.append(next_pos)
+                    visited.add(next_pos)
+                    current = next_pos
+                
+                if current == end:
+                    length = len(path) - 1
+                    ant_paths.append(path)
+                    ant_lengths.append(length)
+                    
+                    if length < best_length:
+                        best_length = length
+                        best_path = path
+            
+            # 更新信息素
+            local_pheromone *= (1 - RHO)
+            
+            # 增强最优路径的信息素
+            if best_length != float('inf'):
+                pheromone_deposit = Q / best_length
+                for (x, y) in best_path:
+                    local_pheromone[x][y] += pheromone_deposit
+        
+        return best_path, best_length
+
+    # 添加匹配方法的变体（分别使用三种算法）
+    def match_users_pure_a_star(self, cars, users, user_dests):
+        """使用纯A*算法进行匹配"""
+        matched = {}
+        car_assignments = {}
+        available_cars = set(cars)
+        all_possible_matches = []
+        
+        for user in users:
+            dest = user_dests[user]
+            for car in cars:
+                if car in available_cars:
+                    car_to_user_path, car_to_user_dist = self.pure_a_star(car, user)
+                    user_to_dest_path, user_to_dest_dist = self.pure_a_star(user, dest)
+                    
+                    if car_to_user_dist < float('inf') and user_to_dest_dist < float('inf'):
+                        total_distance = car_to_user_dist + user_to_dest_dist
+                        all_possible_matches.append((total_distance, user, car))
+        
+        all_possible_matches.sort(key=lambda x: x[0])
+        matched_users = set()
+        
+        for total_distance, user, car in all_possible_matches:
+            if user in matched_users or car not in available_cars:
+                continue
+                
+            dest = user_dests[user]
+            car_to_user_path, car_to_user_dist = self.pure_a_star(car, user)
+            user_to_dest_path, user_to_dest_dist = self.pure_a_star(user, dest)
+            
+            matched[user] = (car, car_to_user_path, car_to_user_dist, 
+                        user_to_dest_path, user_to_dest_dist, total_distance)
+            car_assignments[car] = user
+            available_cars.remove(car)
+            matched_users.add(user)
+            
+            if len(matched_users) == len(users) or not available_cars:
+                break
+        
+        for user in users:
+            if user not in matched:
+                matched[user] = (None, [], float('inf'), [], float('inf'), float('inf'))
+        
+        return matched
+
+    def match_users_pure_aco(self, cars, users, user_dests):
+        """使用纯蚁群算法进行匹配"""
+        # 重置信息素地图
+        self.pheromone_map = np.ones((self.cols, self.rows)) * INITIAL_PHEROMONE
+        
+        matched = {}
+        car_assignments = {}
+        available_cars = set(cars)
+        all_possible_matches = []
+        
+        for user in users:
+            dest = user_dests[user]
+            for car in cars:
+                if car in available_cars:
+                    car_to_user_path, car_to_user_dist = self.pure_aco(car, user)
+                    user_to_dest_path, user_to_dest_dist = self.pure_aco(user, dest)
+                    
+                    if car_to_user_dist < float('inf') and user_to_dest_dist < float('inf'):
+                        total_distance = car_to_user_dist + user_to_dest_dist
+                        all_possible_matches.append((total_distance, user, car))
+        
+        all_possible_matches.sort(key=lambda x: x[0])
+        matched_users = set()
+        
+        for total_distance, user, car in all_possible_matches:
+            if user in matched_users or car not in available_cars:
+                continue
+                
+            dest = user_dests[user]
+            car_to_user_path, car_to_user_dist = self.pure_aco(car, user)
+            user_to_dest_path, user_to_dest_dist = self.pure_aco(user, dest)
+            
+            matched[user] = (car, car_to_user_path, car_to_user_dist, 
+                        user_to_dest_path, user_to_dest_dist, total_distance)
+            car_assignments[car] = user
+            available_cars.remove(car)
+            matched_users.add(user)
+            
+            if len(matched_users) == len(users) or not available_cars:
+                break
+        
+        for user in users:
+            if user not in matched:
+                matched[user] = (None, [], float('inf'), [], float('inf'), float('inf'))
+        
+        return matched   
+    
+
+
+#===================== 打印匹配摘要信息 =====================#
 def print_matching_summary(match_result, user_dests):
     """打印详细的匹配摘要信息"""
     print("\n" + "="*80)
@@ -414,21 +586,50 @@ def main():
         draw_single_block(screen, x, y, Color.BLUE, value=f"C{idx}")
 
     #************************路径规划********************#
-    # 初始化混合路径规划器
+   # 初始化混合路径规划器
     planner = HybridPathPlanner(stop_place)
     
-    # 进行匹配
-    print("\n开始路径规划和匹配...")
-    match_result = planner.match_users_by_total_distance(car_list, user_list, user_dests)
+    # 进行三种算法的匹配
+    print("\n===== 开始三种算法对比测试 =====")
+    
+    print("\n1. 混合算法（A*+蚁群）路径规划和匹配...")
+    hybrid_result = planner.match_users_by_total_distance(car_list, user_list, user_dests)
+    hybrid_total, hybrid_success = print_matching_summary(hybrid_result, user_dests)
+    
+    print("\n2. 纯A*算法路径规划和匹配...")
+    a_star_result = planner.match_users_pure_a_star(car_list, user_list, user_dests)
+    a_star_total, a_star_success = print_matching_summary(a_star_result, user_dests)
+    
+    print("\n3. 纯蚁群算法路径规划和匹配...")
+    aco_result = planner.match_users_pure_aco(car_list, user_list, user_dests)
+    aco_total, aco_success = print_matching_summary(aco_result, user_dests)
+    
+    # 打印算法对比总结
+    print("\n" + "="*80)
+    print("三种算法效果对比")
+    print("="*80)
+    print(f"| 算法类型       | 总距离（格） | 成功匹配数 | 平均每单距离（格） |")
+    print(f"|----------------|--------------|------------|--------------------|")
+    
+    hybrid_avg = hybrid_total / hybrid_success if hybrid_success > 0 else 0
+    print(f"| 混合算法       | {hybrid_total:12d} | {hybrid_success:10d} | {hybrid_avg:18.2f} |")
+    
+    a_star_avg = a_star_total / a_star_success if a_star_success > 0 else 0
+    print(f"| 纯A*算法       | {a_star_total:12d} | {a_star_success:10d} | {a_star_avg:18.2f} |")
+    
+    aco_avg = aco_total / aco_success if aco_success > 0 else 0
+    print(f"| 纯蚁群算法     | {aco_total:12d} | {aco_success:10d} | {aco_avg:18.2f} |")
+    print("="*80)
+
 
     # 打印详细的匹配信息
-    total_distance, successful_matches = print_matching_summary(match_result, user_dests)
+    total_distance, successful_matches = print_matching_summary(hybrid_result, user_dests)
     # **********************主循环控制****************#
     running = True
     while (running==True):
 
         # 路径
-        for idx, (user_pos, match_info) in enumerate(match_result.items(), 1):
+        for idx, (user_pos, match_info) in enumerate(hybrid_result.items(), 1):
             car_pos, car2user_path, _, user2dest_path, _, total_dist = match_info
             dest_pos = user_dests[user_pos]
             
@@ -450,6 +651,7 @@ def main():
     #结束，退出
     pygame.quit()
     sys.exit()    
+    
 
 
 if __name__ == "__main__":
