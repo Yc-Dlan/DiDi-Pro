@@ -24,25 +24,25 @@ class Color(Enum):
         return self.value
 
 # ===================== 全局配置 =====================
-GRID_SIZE = 40          # 格子大小
-GRID_ROWS = 20          # 网格行数
-GRID_COLS = 20          # 网格列数
+GRID_SIZE = 30          # 格子大小
+GRID_ROWS = 30          # 网格行数
+GRID_COLS = 30          # 网格列数
 WINDOW_WIDTH = GRID_COLS * GRID_SIZE 
 WINDOW_HEIGHT = GRID_ROWS * GRID_SIZE 
 
 # 随机生成参数
-COUNT_user = 20   # 用户数量
-COUNT_car = 22   # 车辆数量
+COUNT_user = 30   # 用户数量
+COUNT_car = 32   # 车辆数量
 COUNT_stop = 20  # 禁止区域数量
 
 # 混合算法(A*+蚁群算法)参数
-ALPHA = 1             # 信息素重要程度因子1
-BETA = 5              # 启发函数重要程度因子5
-RHO = 0.3                # 信息素挥发因子0.3
-Q = 50                   # 信息素增量常数50
-MAX_ACO_ITERATIONS = 15  # 蚁群最大迭代次数15
-ANT_COUNT = 20           # 蚂蚁数量20
-INITIAL_PHEROMONE = 0.5  # 初始信息素浓度0.5
+ALPHA = 2             # 信息素重要程度因子1
+BETA = 3              # 启发函数重要程度因子5
+RHO = 0.1                # 信息素挥发因子0.3
+Q = 100                   # 信息素增量常数50
+MAX_ACO_ITERATIONS = 30  # 蚁群最大迭代次数15
+ANT_COUNT = 30           # 蚂蚁数量20
+INITIAL_PHEROMONE = 1.0  # 初始信息素浓度0.5
 
 
 
@@ -120,7 +120,6 @@ class HybridPathPlanner:
         if start in self.obstacles or end in self.obstacles:
             return [], float('inf')
         
-        # 使用heapq实现优先队列
         open_set = []
         heapq.heappush(open_set, (0, 0, start))
         came_from = {}
@@ -243,17 +242,21 @@ class HybridPathPlanner:
         return best_path, best_length
     
     def hybrid_find_path(self, start, end):
-        """混合算法：A* + 蚁群优化"""
-        # 阶段1：A*找到初始路径
-        a_star_path, a_star_dist = self.a_star_with_pheromone(start, end, use_pheromone=True)
+        """改进的混合算法"""
+        # 阶段1：先用A*找到一条基础路径
+        a_star_path, a_star_dist = self.a_star_with_pheromone(start, end, use_pheromone=False)
         
         if a_star_dist == float('inf'):
             return [], float('inf')
         
-        # 阶段2：蚁群算法优化
+        # 阶段2：如果路径较短，直接返回A*结果
+        if a_star_dist < 10:  # 阈值
+            return a_star_path, a_star_dist
+        
+        # 阶段3：用蚁群算法优化较长路径
         aco_path, aco_dist = self.aco_optimize_path(start, end, a_star_path)
         
-        # 选择更优的路径
+        # 选择更优的
         if aco_dist < a_star_dist and len(aco_path) > 0:
             final_path = aco_path
             final_dist = aco_dist
@@ -261,11 +264,15 @@ class HybridPathPlanner:
             final_path = a_star_path
             final_dist = a_star_dist
         
-        # 阶段3：用最终路径更新全局信息素
+        # 更新信息素
         if final_dist > 0:
             pheromone_deposit = Q / final_dist
             for (x, y) in final_path:
+                # 路径上的每个点都增强
                 self.pheromone_map[x][y] = (1 - RHO) * self.pheromone_map[x][y] + pheromone_deposit
+            # 起点和终点额外增强
+            self.pheromone_map[start[0]][start[1]] += pheromone_deposit * 2
+            self.pheromone_map[end[0]][end[1]] += pheromone_deposit * 2
         
         return final_path, final_dist
   
@@ -275,7 +282,7 @@ class HybridPathPlanner:
         采用贪心策略：按总距离从小到大排序，优先分配总距离最小的匹配
         """
         # 重置信息素地图
-        self.pheromone_map = np.ones((self.cols, self.rows)) * INITIAL_PHEROMONE
+        #self.pheromone_map = np.ones((self.cols, self.rows)) * INITIAL_PHEROMONE
         
         matched = {}  # 用户 -> 匹配信息
         car_assignments = {}  # 车辆 -> 用户
@@ -288,7 +295,6 @@ class HybridPathPlanner:
             dest = user_dests[user]
             for car in cars:
                 if car in available_cars:
-                    # 修复：hybrid_find_path仅返回2个值，解包数量匹配
                     car_to_user_path, car_to_user_dist = self.hybrid_find_path(car, user)
                     user_to_dest_path, user_to_dest_dist = self.hybrid_find_path(user, dest)
                     
@@ -404,7 +410,6 @@ class HybridPathPlanner:
         
         return best_path, best_length
 
-    # 添加匹配方法的变体（分别使用三种算法）
     def match_users_pure_a_star(self, cars, users, user_dests):
         """使用纯A*算法进行匹配"""
         matched = {}
@@ -608,6 +613,7 @@ def main():
     print("\n" + "="*80)
     print("三种算法效果对比")
     print("="*80)
+
     print(f"| 算法类型       | 总距离（格） | 成功匹配数 | 平均每单距离（格） |")
     print(f"|----------------|--------------|------------|--------------------|")
     
@@ -619,6 +625,7 @@ def main():
     
     aco_avg = aco_total / aco_success if aco_success > 0 else 0
     print(f"| 纯蚁群算法     | {aco_total:12d} | {aco_success:10d} | {aco_avg:18.2f} |")
+
     print("="*80)
 
 
