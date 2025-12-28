@@ -24,16 +24,16 @@ class Color(Enum):
         return self.value
 
 # ===================== 全局配置 =====================
-GRID_SIZE = 30          # 格子大小
-GRID_ROWS = 30          # 网格行数
-GRID_COLS = 30          # 网格列数
+GRID_SIZE = 20          # 格子大小
+GRID_ROWS = 40          # 网格行数
+GRID_COLS = 40          # 网格列数
 WINDOW_WIDTH = GRID_COLS * GRID_SIZE 
 WINDOW_HEIGHT = GRID_ROWS * GRID_SIZE 
 
 # 随机生成参数
-COUNT_user = 30   # 用户数量
-COUNT_car = 32   # 车辆数量
-COUNT_stop = 20  # 禁止区域数量
+COUNT_user = 50   # 用户数量
+COUNT_car = 50   # 车辆数量
+COUNT_stop = 200  # 禁止区域数量
 
 # 混合算法(A*+蚁群算法)参数
 ALPHA = 2             # 信息素重要程度因子1
