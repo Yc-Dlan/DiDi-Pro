@@ -23,7 +23,7 @@ COUNT_USER = 20
 COUNT_CAR = 22   
 COUNT_STOP = 20  
 
-# ===================== 核心绘图函数 =====================
+
 def generate_random_xy(count, max_x, max_y, avoid=None):
     if avoid is None: avoid = set()
     else: avoid = set(avoid)
@@ -52,13 +52,13 @@ def draw_block(screen, x, y, color, label=""):
         rect = text.get_rect(center=(px + GRID_SIZE//2, py + GRID_SIZE//2))
         screen.blit(text, rect)
 
-# ===================== 主程序 =====================
+
 def main():
     pygame.init()
     screen = pygame.display.set_mode((WINDOW_WIDTH, WINDOW_HEIGHT))
     pygame.display.set_caption("地图初始化展示（无匹配路径）")
     
-    # 1. 生成数据
+
     stops = generate_random_xy(COUNT_STOP, GRID_COLS, GRID_ROWS)
     users = generate_random_xy(COUNT_USER, GRID_COLS, GRID_ROWS, avoid=stops)
     
@@ -71,7 +71,7 @@ def main():
         
     cars = generate_random_xy(COUNT_CAR, GRID_COLS, GRID_ROWS, avoid=temp_avoid)
 
-    # 2. 静态绘制（只需画一次）
+
     screen.fill(Color.BLACK.value)
     draw_grid(screen)
     
@@ -84,7 +84,7 @@ def main():
 
     pygame.display.flip()
 
-    # 3. 事件循环保持窗口
+
     while True:
         for event in pygame.event.get():
             if event.type == pygame.QUIT:

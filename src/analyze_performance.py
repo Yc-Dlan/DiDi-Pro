@@ -71,7 +71,6 @@ def main_analysis():
             times.append(t)
             distances.append(d)
         
-        # 绘图
         fig, ax1 = plt.subplots(figsize=(8, 5))
         
         color_time = 'tab:red'
