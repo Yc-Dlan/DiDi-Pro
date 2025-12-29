@@ -17,22 +17,22 @@ class Color(Enum):
     ORANGE = (255, 165, 0)     # 橙色
     YELLOW = (255, 255, 0)     # 黄色（接人路径：车辆→用户）
     CYAN = (0, 255, 255)       # 青色（送人路径：用户→目标地址）
-    PINK = (255, 192, 203)     # 粉色 （喜欢的颜色额，待定）
+    PINK = (255, 192, 203)     # 粉色 
 
     @property
     def rgb(self):
         return self.value
 
 # ===================== 全局配置 =====================
-GRID_SIZE = 20          # 格子大小
-GRID_ROWS = 40          # 网格行数
-GRID_COLS = 40          # 网格列数
+GRID_SIZE = 30          # 格子大小
+GRID_ROWS = 30          # 网格行数
+GRID_COLS = 30          # 网格列数
 WINDOW_WIDTH = GRID_COLS * GRID_SIZE 
 WINDOW_HEIGHT = GRID_ROWS * GRID_SIZE 
 
 # 随机生成参数
-COUNT_user = 50   # 用户数量
-COUNT_car = 50   # 车辆数量
+COUNT_user = 30   # 用户数量
+COUNT_car = 40   # 车辆数量
 COUNT_stop = 200  # 禁止区域数量
 
 # 混合算法(A*+蚁群算法)参数
@@ -256,7 +256,7 @@ class HybridPathPlanner:
         # 阶段3：用蚁群算法优化较长路径
         aco_path, aco_dist = self.aco_optimize_path(start, end, a_star_path)
         
-        # 选择更优的
+        # 选择更优
         if aco_dist < a_star_dist and len(aco_path) > 0:
             final_path = aco_path
             final_dist = aco_dist
@@ -456,7 +456,6 @@ class HybridPathPlanner:
 
     def match_users_pure_aco(self, cars, users, user_dests):
         """使用纯蚁群算法进行匹配"""
-        # 重置信息素地图
         self.pheromone_map = np.ones((self.cols, self.rows)) * INITIAL_PHEROMONE
         
         matched = {}
@@ -503,7 +502,7 @@ class HybridPathPlanner:
     
 
 
-#===================== 打印匹配摘要信息 =====================#
+
 def print_matching_summary(match_result, user_dests):
     """打印详细的匹配摘要信息"""
     print("\n" + "="*80)

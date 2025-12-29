@@ -1,7 +1,7 @@
 import time
 import matplotlib.pyplot as plt
 import numpy as np
-import dragon_map  # 导入你的源代码模块
+import dragon_map  
 
 # ===================== 高密度实验配置 =====================
 test_configs = {
@@ -23,33 +23,28 @@ test_configs = {
     'INITIAL_PHEROMONE': np.linspace(0.1, 10, 15).tolist()
 }
 
-# 建议：每个参数点重复运行次数，取平均值以平滑曲线
+
 TRIALS_PER_VALUE = 5
 
 def run_single_test(param_name, value, planner, cars, users, dests):
-    """运行单次参数测试并记录数据"""
-    # 备份原始值
+
     original_val = getattr(dragon_map, param_name)
-    # 修改全局变量
+
     setattr(dragon_map, param_name, value)
     
     start_t = time.time()
-    # 调用混合算法匹配逻辑
+
     result = planner.match_users_by_total_distance(cars, users, dests)
     end_t = time.time()
     
-    # 统计总距离（排除未匹配成功的 inf）
     total_dist = sum(info[5] for info in result.values() if info[0] is not None and info[5] != float('inf'))
     
-    # 还原原始值
     setattr(dragon_map, param_name, original_val)
     return (end_t - start_t), total_dist
 
 def main_analysis():
-    # 1. 初始化一个固定场景进行公平对比
     from dragon_map import generate_random_xy, GRID_COLS, GRID_ROWS, HybridPathPlanner
     
-    # 使用较小规模以便快速测试
     dragon_map.COUNT_user = 6
     dragon_map.COUNT_car = 8
     dragon_map.COUNT_stop = 30
@@ -66,7 +61,6 @@ def main_analysis():
     
     planner = HybridPathPlanner(stops)
 
-    # 2. 依次对每个参数进行扫描
     for param, values in test_configs.items():
         times = []
         distances = []
@@ -77,7 +71,7 @@ def main_analysis():
             times.append(t)
             distances.append(d)
         
-        # 3. 绘图
+        # 绘图
         fig, ax1 = plt.subplots(figsize=(8, 5))
         
         color_time = 'tab:red'
