@@ -31,18 +31,18 @@ WINDOW_WIDTH = GRID_COLS * GRID_SIZE
 WINDOW_HEIGHT = GRID_ROWS * GRID_SIZE 
 
 # 随机生成参数
-COUNT_user = 30   # 用户数量
-COUNT_car = 40   # 车辆数量
+COUNT_user = 20   # 用户数量
+COUNT_car = 30   # 车辆数量
 COUNT_stop = 200  # 禁止区域数量
 
 # 混合算法(A*+蚁群算法)参数
-ALPHA = 2             # 信息素重要程度因子1
-BETA = 3              # 启发函数重要程度因子5
-RHO = 0.1                # 信息素挥发因子0.3
-Q = 100                   # 信息素增量常数50
-MAX_ACO_ITERATIONS = 30  # 蚁群最大迭代次数15
-ANT_COUNT = 30           # 蚂蚁数量20
-INITIAL_PHEROMONE = 1.0  # 初始信息素浓度0.5
+ALPHA = 2             # 信息素重要程度因子
+BETA = 3              # 启发函数重要程度因子
+RHO = 0.1                # 信息素挥发因子
+Q = 100                   # 信息素增量常数
+MAX_ACO_ITERATIONS = 30  # 蚁群最大迭代次数
+ANT_COUNT = 30           # 蚂蚁数量
+INITIAL_PHEROMONE = 1.0  # 初始信息素浓度
 
 
 

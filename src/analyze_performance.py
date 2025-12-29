@@ -3,7 +3,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import dragon_map  
 
-# ===================== 高密度实验配置 =====================
+
 test_configs = {
     # 规模参数：采样点从 7 个增加到 15 个，范围扩大
     'ANT_COUNT': np.linspace(5, 150, 15, dtype=int).tolist(),
