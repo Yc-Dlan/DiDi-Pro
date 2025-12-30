@@ -23,11 +23,11 @@ class PSOOrderMatcher:
         k_carpool = 0.8,      # 拼车超限的k
         k_unassigned = 1.0,   # 未分配订单的k
         # 多目标权重
-        weight_distance: float = 0.5,  # 路程权重
-        weight_imbalance: float = 0.2, # 分配不均权重
-        weight_carpool: float = 0.2,   # 拼车超限权重
-        weight_unassigned: float = 0.1,# 未分配订单权重
-        empty_weight: float = 1.5      # 空驶路程的额外权重
+        weight_distance= 0.5,  # 路程权重
+        weight_imbalance = 0.2, # 分配不均权重
+        weight_carpool = 0.2,   # 拼车超限权重
+        weight_unassigned = 0.1,# 未分配订单权重
+        empty_weight = 1.5      # 空驶路程的额外权重
     ):
         self.orders = subgroup_orders
         self.cars = subgroup_cars
@@ -81,7 +81,7 @@ class PSOOrderMatcher:
         self.max_carpool_ref = 4  # 拼车超限最大参考值
         self.max_unassigned_ref = self.n_orders  # 未分配订单最大参考值
 
-    def _calc_max_distance_ref(self) -> float:
+    def _calc_max_distance_ref(self):
         """计算路程最大参考值"""
         if self.n_orders == 0:
             return 1.0

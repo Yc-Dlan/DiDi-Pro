@@ -48,11 +48,11 @@ class TaxiCarClusterMatcher:
         mid_lat = (start_lat + end_lat) / 2
         return mid_lon, mid_lat
 
-    def calculate_euclidean_distance(self, coord1: np.ndarray, coord2: np.ndarray) -> float:
+    def calculate_euclidean_distance(self, coord1, coord2):
         """计算两点间的欧氏距离"""
         return np.linalg.norm(coord1 - coord2)
 
-    def cluster_taxi_orders(self, orders: List[TaxiOrder]) -> List[TaxiOrder]:
+    def cluster_taxi_orders(self, orders):
         """
         订单聚类
         :param orders: 原始订单列表
