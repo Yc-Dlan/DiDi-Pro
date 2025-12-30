@@ -20,11 +20,11 @@ MIN_DISTANCE_KM = 0.5
 MAX_DISTANCE_KM = 30    
 
 class TaxiOrder:
-    """打车订单生成类，仅包含订单核心属性（无时间/用车类型相关逻辑）"""
+    """打车订单生成类，仅包含订单核心属性"""
     _order_counter = 1
 
     def __init__(self):
-        self.order_id: str = self._generate_order_id()
+        self.order_id = self._generate_order_id()
         
         # 地理位置（上下车点）
         self.start_lon = round(random.uniform(*CITY_LON_RANGE), 6)
@@ -66,7 +66,7 @@ class TaxiOrder:
             # 非拼车订单
             self.passenger_num = random.randint(1, MAX_PASSENGER)
 
-def generate_taxi_orders(num: int):
+def generate_taxi_orders(num):
     """生成指定数量的打车订单"""
     TaxiOrder._order_counter = 1
     orders = []
