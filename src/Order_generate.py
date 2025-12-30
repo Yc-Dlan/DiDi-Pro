@@ -8,8 +8,8 @@ from Distance_transfer import cal_km_by_lon_lat
 # 生成订单总数
 ORDER_NUM = 100
 # 目标城市经纬度范围
-CITY_LON_RANGE = (121.38, 121.55)  # 经度
-CITY_LAT_RANGE = (31.18, 31.35)    # 纬度
+CITY_LON_RANGE = (118.22, 119.14)  # 经度
+CITY_LAT_RANGE = (31.14, 32.37)    # 纬度
 # 乘客数上限
 MAX_PASSENGER = 4
 # 拼车订单比例

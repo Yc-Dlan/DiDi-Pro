@@ -4,10 +4,10 @@ import math
 from typing import List, Dict
 
 # 生成车辆总数
-CAR_NUM = 10 
+CAR_NUM = 20
 # 目标城市经纬度范围（上海核心区）
-CITY_LON_RANGE = (121.38, 121.55)  # 经度
-CITY_LAT_RANGE = (31.18, 31.35)    # 纬度
+CITY_LON_RANGE = (118.22, 119.14)  # 经度
+CITY_LAT_RANGE = (31.14, 32.37)    # 纬度
 # 经纬度精度（小数点后6位，符合GPS真实精度）
 COORDINATE_PRECISION = 6
 # 司机ID前缀（模拟真实司机编号）
