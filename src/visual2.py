@@ -2,27 +2,24 @@ import numpy as np
 import matplotlib.pyplot as plt
 from Car_generate import generate_netcar_locations, CAR_NUM
 from Order_generate import generate_taxi_orders, ORDER_NUM
-from K_means_visual import TaxiCarClusterManager  # 导入聚类管理器类
+from K_means_visual import TaxiCarClusterManager 
 
 def visualize_clustering_and_matching(n_clusters=4):
-    """
-    完整流程：生成数据 → 执行聚类 → 匹配中心 → 可视化聚类分布和中心匹配关系
-    """
-    # 1. 生成模拟数据
+    # 生成模拟数据
     orders = generate_taxi_orders(ORDER_NUM)  # 生成订单数据
     cars = generate_netcar_locations(CAR_NUM)  # 生成车辆数据
     print(f"已生成 {len(orders)} 个订单和 {len(cars)} 辆车辆数据")
 
-    # 2. 初始化聚类管理器并执行聚类
+    # 初始化聚类管理器并执行聚类
     cluster_manager = TaxiCarClusterManager(n_clusters=n_clusters, random_state=42)
     cluster_manager.cluster_taxi_orders(orders)  # 订单聚类（基于起点-终点中点）
     cluster_manager.cluster_netcar_locations(cars)  # 车辆聚类（基于实时位置）
     center_matches, match_distances = cluster_manager.match_cluster_centers()  # 匹配聚类中心
 
-    # 3. 可视化1：订单与车辆的聚类分布（并排展示）
+    # 可视化1：订单与车辆的聚类分布（并排展示）
     cluster_manager.plot_clustering_side_by_side(figsize=(16, 8))
 
-    # 4. 可视化2：聚类中心匹配关系（连线展示）
+    # 可视化2：聚类中心匹配关系（连线展示）
     plt.figure(figsize=(10, 8))
     
     # 获取聚类中心坐标
@@ -66,5 +63,5 @@ def visualize_clustering_and_matching(n_clusters=4):
     cluster_manager.print_subgroup_stats()
 
 if __name__ == "__main__":
-    # 可自定义聚类数量（如4、5、6等）
+    # 可自定义聚类数量
     visualize_clustering_and_matching(n_clusters=4)

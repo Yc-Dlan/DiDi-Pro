@@ -15,20 +15,20 @@ class PSOOrderMatcher:
         self,
         subgroup_orders: List[TaxiOrder],
         subgroup_cars: List[NetCarLocation],
-        w: float = 0.7,          # PSO inertia weight (fixed optimal)
-        c1: float = 1.2,         # PSO cognitive coefficient (fixed optimal)
-        c2: float = 1.2,         # PSO social coefficient (fixed optimal)
-        alpha1: float = 0.5,     # Tuning Weight α1: Distance cost (SUM=1)
-        alpha2: float = 0.2,     # Tuning Weight α2: Order balance (SUM=1)
-        alpha3: float = 0.2,     # Tuning Weight α3: Carpool constraint (SUM=1)
-        alpha4: float = 0.1,     # Tuning Weight α4: Unassigned order (SUM=1)
-        max_iter: int = 100,
-        pop_size: int = 50,
-        k_distance: float = 0.001,
-        k_imbalance: float = 0.5,
-        k_carpool: float = 0.8,
-        k_unassigned: float = 1.0,
-        empty_weight: float = 1.5
+        w = 0.7,          # PSO inertia weight (fixed optimal)
+        c1 = 1.2,         # PSO cognitive coefficient (fixed optimal)
+        c2 = 1.2,         # PSO social coefficient (fixed optimal)
+        alpha1 = 0.5,     # Tuning Weight α1: Distance cost (SUM=1)
+        alpha2 = 0.2,     # Tuning Weight α2: Order balance (SUM=1)
+        alpha3 = 0.2,     # Tuning Weight α3: Carpool constraint (SUM=1)
+        alpha4 = 0.1,     # Tuning Weight α4: Unassigned order (SUM=1)
+        max_iter = 100,
+        pop_size = 50,
+        k_distance = 0.001,
+        k_imbalance = 0.5,
+        k_carpool = 0.8,
+        k_unassigned = 1.0,
+        empty_weight = 1.5
     ):
         self.orders = subgroup_orders
         self.cars = subgroup_cars
@@ -67,7 +67,7 @@ class PSOOrderMatcher:
         self.max_carpool_ref = 4
         self.max_unassigned_ref = self.n_orders
 
-    def _calc_max_distance_ref(self) -> float:
+    def _calc_max_distance_ref(self):
         if self.n_orders == 0: return 1.0
         total = 0.0
         for order in self.orders:
@@ -77,7 +77,7 @@ class PSOOrderMatcher:
             total += empty_max * self.empty_weight + ride
         return total
 
-    def _normalize(self, x: float, k: float, max_ref: float) -> float:
+    def _normalize(self, x, k, max_ref):
         if max_ref == 0 or x <= 0: return 0.0
         normalized_x = x / max_ref
         return 1 - np.exp(-k * normalized_x)
@@ -89,7 +89,7 @@ class PSOOrderMatcher:
             self.pbest.append(particle.copy())
             self.pbest_fitness.append(float('inf'))
 
-    def _calculate_fitness(self, particle: Dict[str, str]) -> float:
+    def _calculate_fitness(self, particle):
         total_weighted_distance = 0.0;total_imbalance=0.0;total_carpool_exceed=0.0;total_unassigned=0.0
         car_order_map = defaultdict(list)
         for oid, cid in particle.items(): car_order_map[cid].append(oid)
@@ -120,7 +120,7 @@ class PSOOrderMatcher:
         # Core: Fitness function with α1-α4 tunable weights (α1+α2+α3+α4 = 1.0)
         return norm_d*self.alpha1 + norm_i*self.alpha2 + norm_c*self.alpha3 + norm_u*self.alpha4
 
-    def _update_velocity_position(self, particle_idx: int):
+    def _update_velocity_position(self, particle_idx):
         current_p = self.particles[particle_idx];pbest_p = self.pbest[particle_idx]
         for oid in self.order_ids:
             r1, r2 = np.random.random(), np.random.random()
@@ -128,7 +128,7 @@ class PSOOrderMatcher:
             if cog_prob > 0.5: current_p[oid] = pbest_p[oid]
             if soc_prob > 0.5 and self.gbest is not None: current_p[oid] = self.gbest[oid]
 
-    def optimize(self) -> Tuple[Dict[str, str], float]:
+    def optimize(self):
         self._initialize_particles();self.gbest_fitness_history = []
         for _ in range(self.max_iter):
             current_gbest = float('inf');current_gbest_particle = None
@@ -142,7 +142,7 @@ class PSOOrderMatcher:
         return self.gbest, self.gbest_fitness
 
 # ===================== Unified Performance Calculation (Fair Comparison) =====================
-def calculate_performance(matching_result: Dict[str, str], all_orders: List[TaxiOrder], all_cars: List[NetCarLocation]) -> Dict:
+def calculate_performance(matching_result, all_orders, all_cars):
     """Unified Calculation: Total Distance, Empty Rate, Order Completion Rate, Empty/Ride Distance"""
     car_order_map = defaultdict(list)
     for oid, cid in matching_result.items(): car_order_map[cid].append(oid)

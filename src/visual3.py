@@ -11,28 +11,28 @@ from Distance_transfer import cal_km_by_lon_lat
 from K_means import TaxiCarClusterMatcher
 
 class PSOOrderMatcher:
-    """粒子群优化订单匹配器（含全部可视化+完整性能指标计算功能）"""
+    """粒子群优化订单匹配器"""
     
     def __init__(
         self,
-        subgroup_orders: List[TaxiOrder],
-        subgroup_cars: List[NetCarLocation],
-        w: float = 0.5,  # PSO惯性权重
-        c1: float = 1.0, # 认知系数
-        c2: float = 1.0, # 社会系数
-        max_iter: int = 50,
-        pop_size: int = 30,
+        subgroup_orders,
+        subgroup_cars,
+        w = 0.5,  # PSO惯性权重
+        c1 = 1.0, # 认知系数
+        c2 = 1.0, # 社会系数
+        max_iter = 50,
+        pop_size = 30,
         # 多目标归一化参数
-        k_distance: float = 0.001,
-        k_imbalance: float = 0.5,
-        k_carpool: float = 0.8,
-        k_unassigned: float = 1.0,
+        k_distance = 0.001,
+        k_imbalance = 0.5,
+        k_carpool = 0.8,
+        k_unassigned = 1.0,
         # 多目标权重
-        weight_distance: float = 0.5,
-        weight_imbalance: float = 0.2,
-        weight_carpool: float = 0.2,
-        weight_unassigned: float = 0.1,
-        empty_weight: float = 1.5
+        weight_distance = 0.5,
+        weight_imbalance = 0.2,
+        weight_carpool = 0.2,
+        weight_unassigned= 0.1,
+        empty_weight = 1.5
     ):
         self.orders = subgroup_orders
         self.cars = subgroup_cars
@@ -71,7 +71,7 @@ class PSOOrderMatcher:
         self.pbest_fitness = []
         self.gbest_fitness = float('inf')
         
-        # 优化过程记录（用于可视化）
+        # 优化过程记录
         self.gbest_fitness_history = []  # 记录每代的全局最优适应度
         
         # 基础统计值
@@ -88,10 +88,9 @@ class PSOOrderMatcher:
         self.max_carpool_ref = 4
         self.max_unassigned_ref = self.n_orders
         
-        # ========== 新增：性能指标存储 ==========
         self.performance_metrics = {}
 
-    def _calc_max_distance_ref(self) -> float:
+    def _calc_max_distance_ref(self):
         if self.n_orders == 0:
             return 1.0
         total = 0.0
@@ -110,7 +109,7 @@ class PSOOrderMatcher:
             total += empty_max * self.empty_weight + ride
         return total
 
-    def _normalize(self, x: float, k: float, max_ref: float) -> float:
+    def _normalize(self, x, k, max_ref):
         if max_ref == 0 or x <= 0:
             return 0.0
         normalized_x = x / max_ref
@@ -123,7 +122,7 @@ class PSOOrderMatcher:
             self.pbest.append(particle.copy())
             self.pbest_fitness.append(float('inf'))
 
-    def _calculate_fitness(self, particle: Dict[str, str]) -> float:
+    def _calculate_fitness(self, particle):
         total_weighted_distance = 0.0
         total_imbalance = 0.0
         total_carpool_exceed = 0.0
@@ -210,8 +209,8 @@ class PSOOrderMatcher:
             if soc_prob > 0.5 and self.gbest is not None:
                 current_p[order_id] = self.gbest[order_id]
 
-    def optimize(self) -> Tuple[Dict[str, str], float]:
-        """执行PSO优化，返回最优匹配和适应度，同时记录优化过程"""
+    def optimize(self):
+        """执行PSO优化"""
         self._initialize_particles()
         self.gbest_fitness_history = []  # 重置历史记录
 
@@ -247,8 +246,7 @@ class PSOOrderMatcher:
         self.calculate_performance_metrics(self.gbest)
         return self.gbest, self.gbest_fitness
 
-    # ======================== 核心新增：6类性能指标完整计算方法 ========================
-    def calculate_performance_metrics(self, best_matching: Dict[str, str]) -> Dict[str, float]:
+    def calculate_performance_metrics(self, best_matching):
         """计算所有核心性能指标，返回指标字典，指标全部量化，数值越小/越高越好（标注）"""
         car_order_map = defaultdict(list)
         for o_id, c_id in best_matching.items():
@@ -345,7 +343,7 @@ class PSOOrderMatcher:
         return self.performance_metrics
 
     # ======================== 原有可视化方法 不变 ========================
-    def plot_pso_optimization_process(self, figsize: Tuple[int, int] = (10, 6)):
+    def plot_pso_optimization_process(self, figsize = (10, 6)):
         if not self.gbest_fitness_history:
             raise RuntimeError("请先执行优化操作（optimize）")
         plt.figure(figsize=figsize)
@@ -358,7 +356,7 @@ class PSOOrderMatcher:
         plt.tight_layout()
         plt.show()
 
-    def plot_vehicle_load_balance(self, best_matching: Dict[str, str], figsize: Tuple[int, int] = (12, 6)):
+    def plot_vehicle_load_balance(self, best_matching, figsize = (12, 6)):
         if not best_matching:
             raise RuntimeError("请先获取最优匹配结果")
         car_order_count = defaultdict(int)
@@ -384,7 +382,7 @@ class PSOOrderMatcher:
         plt.show()
 
 # ======================== 原有绘图函数 不变 ========================
-def plot_subgroup_matching(subgroup_id: int, orders: List[TaxiOrder], cars: List[NetCarLocation], matching: Dict[str, str], figsize: Tuple[int, int] = (12, 10)):
+def plot_subgroup_matching(subgroup_id, orders, cars, matching, figsize = (12, 10)):
     if not orders or not cars or not matching:
         raise ValueError("订单、车辆或匹配结果不能为空")
     car_ids = [car.car_id for car in cars]
@@ -416,7 +414,7 @@ def plot_subgroup_matching(subgroup_id: int, orders: List[TaxiOrder], cars: List
     plt.tight_layout()
     plt.show()
 
-def plot_directed_routes(matcher: PSOOrderMatcher, best_matching: Dict[str, str], subgroup_id: int, figsize: Tuple[int, float] = (12, 8)):
+def plot_directed_routes(matcher, best_matching, subgroup_id, figsize = (12, 8)):
     if not matcher.orders or not matcher.cars or not best_matching:
         raise ValueError("数据不能为空")
     car_routes = {}
@@ -458,8 +456,7 @@ def plot_directed_routes(matcher: PSOOrderMatcher, best_matching: Dict[str, str]
     plt.tight_layout()
     plt.show()
 
-# ======================== 新增：性能指标可视化函数 ========================
-def plot_performance_metrics(metrics: Dict[str, float], subgroup_id: int, figsize: Tuple[int, int] = (14, 8)):
+def plot_performance_metrics(metrics, subgroup_id, figsize = (14, 8)):
     """可视化核心性能指标，柱状图+数值标注，直观展示优劣"""
     plt.figure(figsize=figsize)
     # 筛选核心可视化指标
@@ -482,7 +479,6 @@ def plot_performance_metrics(metrics: Dict[str, float], subgroup_id: int, figsiz
     plt.tight_layout()
     plt.show()
 
-# ======================== 主函数 ========================
 def main():
     # 生成数据
     orders = generate_taxi_orders(ORDER_NUM)

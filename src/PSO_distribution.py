@@ -7,24 +7,23 @@ from Distance_transfer import cal_km_by_lon_lat
 from K_means import TaxiCarClusterMatcher
 
 class PSOOrderMatcher:
-    """粒子群优化订单匹配器（多目标加权+归一化惩罚）"""
-    
+    """粒子群优化订单匹配器"""
     def __init__(
         self,
-        subgroup_orders: List[TaxiOrder],
-        subgroup_cars: List[NetCarLocation],
-        w: float = 0.5,  # PSO惯性权重
-        c1: float = 1.0, # 认知系数
-        c2: float = 1.0, # 社会系数
-        max_iter: int = 50,
-        pop_size: int = 30,
-        # 多目标归一化参数（每个目标独立的k值）
-        k_distance: float = 0.001,  # 路程目标的k（x=路程，单位km）
-        k_imbalance: float = 0.5,    # 分配不均的k（x=超出平均的订单数）
-        k_carpool: float = 0.8,      # 拼车超限的k（x=超限乘客数）
-        k_unassigned: float = 1.0,   # 未分配订单的k（x=未分配数）
-        # 多目标权重（总和建议为1，可调整优先级）
-        weight_distance: float = 0.5,  # 路程权重（核心目标）
+        subgroup_orders,
+        subgroup_cars,
+        w = 0.5,  # PSO惯性权重
+        c1 = 1.0, # 认知系数
+        c2 = 1.0, # 社会系数
+        max_iter = 50,
+        pop_size = 30,
+        # 多目标归一化参数
+        k_distance = 0.001,  # 路程目标的k
+        k_imbalance = 0.5,    # 分配不均的k
+        k_carpool = 0.8,      # 拼车超限的k
+        k_unassigned = 1.0,   # 未分配订单的k
+        # 多目标权重
+        weight_distance: float = 0.5,  # 路程权重
         weight_imbalance: float = 0.2, # 分配不均权重
         weight_carpool: float = 0.2,   # 拼车超限权重
         weight_unassigned: float = 0.1,# 未分配订单权重
@@ -44,7 +43,7 @@ class PSOOrderMatcher:
         self.k_carpool = k_carpool
         self.k_unassigned = k_unassigned
         
-        # 多目标权重（确保权重和为1，避免量级失衡）
+        # 多目标权重
         self.weight_distance = weight_distance
         self.weight_imbalance = weight_imbalance
         self.weight_carpool = weight_carpool
@@ -76,25 +75,25 @@ class PSOOrderMatcher:
         self.order_id_map = {o.order_id: o for o in self.orders}
         self.avg_orders_per_car = self.n_orders / self.n_cars if self.n_cars > 0 else 0
         
-        # 预计算各目标的最大参考值（用于归一化的x范围校准）
+        # 预计算各目标的最大参考值
         self.max_distance_ref = self._calc_max_distance_ref()  # 路程最大参考值
         self.max_imbalance_ref = self.n_orders  # 分配不均最大参考值
         self.max_carpool_ref = 4  # 拼车超限最大参考值
         self.max_unassigned_ref = self.n_orders  # 未分配订单最大参考值
 
     def _calc_max_distance_ref(self) -> float:
-        """计算路程最大参考值（所有订单空驶+载客的理论最大值）"""
+        """计算路程最大参考值"""
         if self.n_orders == 0:
             return 1.0
         total = 0.0
         for order in self.orders:
-            # 空驶：车辆初始位置到订单起点的最大可能距离（简化为两倍实际距离）
+            # 空驶:简化为两倍实际距离
             empty_max = cal_km_by_lon_lat(
                 self.car_states[self.car_ids[0]]["current_lon"],
                 self.car_states[self.car_ids[0]]["current_lat"],
                 order.start_lon, order.start_lat
             ) * 2
-            # 载客：订单本身的距离
+            # 载客:订单本身的距离
             ride = cal_km_by_lon_lat(
                 order.start_lon, order.start_lat,
                 order.end_lon, order.end_lat
@@ -102,17 +101,17 @@ class PSOOrderMatcher:
             total += empty_max * self.empty_weight + ride
         return total
 
-    def _normalize(self, x: float, k: float, max_ref: float) -> float:
+    def _normalize(self, x, k, max_ref):
         """
-        归一化函数：fx = 1 - e^(-k * (x / max_ref))
+        归一化函数 fx = 1 - e^(-k * (x / max_ref))
         - x: 原始变量值（路程/分配不均数/超限数/未分配数）
         - k: 该目标的惩罚系数
-        - max_ref: 该目标的最大参考值（校准x的量级）
-        - 返回：归一化后的值（0~1，越小越好）
+        - max_ref: 该目标的最大参考值(校准x的量级)
+        - return: 归一化后的值
         """
         if max_ref == 0 or x <= 0:
             return 0.0
-        normalized_x = x / max_ref  # 先将x归一化到0~1区间
+        normalized_x = x / max_ref  
         return 1 - np.exp(-k * normalized_x)
 
     def _initialize_particles(self):
@@ -123,23 +122,21 @@ class PSOOrderMatcher:
             self.pbest.append(particle.copy())
             self.pbest_fitness.append(float('inf'))
 
-    def _calculate_fitness(self, particle: Dict[str, str]) -> float:
+    def _calculate_fitness(self, particle):
         """
         多目标加权适应度计算：
         适应度 = 归一化路程×路程权重 + 归一化分配不均×不均权重 + 归一化拼车超限×拼车权重 + 归一化未分配×未分配权重
-        所有目标归一化后∈[0,1)，权重和=1，总适应度越小越好
         """
-        # ========== 步骤1：计算4个原始目标变量 ==========
-        # 1. 路程相关：空驶（加权）+ 载客
+        # 路程相关：空驶（加权）+ 载客
         total_weighted_distance = 0.0
-        # 2. 分配不均：所有车辆超出平均订单数的总和
+        # 分配不均：所有车辆超出平均订单数的总和
         total_imbalance = 0.0
-        # 3. 拼车超限：所有车辆拼车乘客超限的总和
+        # 拼车超限：所有车辆拼车乘客超限的总和
         total_carpool_exceed = 0.0
-        # 4. 未分配订单数
+        # 未分配订单数
         total_unassigned = 0.0
 
-        # 按车辆分组订单（计算接送顺序+各目标）
+        # 按车辆分组订单
         car_order_map = defaultdict(list)
         for order_id, car_id in particle.items():
             car_order_map[car_id].append(order_id)
@@ -154,10 +151,10 @@ class PSOOrderMatcher:
             current_passengers = 0
             car_assigned = []
 
-            # 按接送顺序计算路程（无时间约束，仅位置顺序）
+            # 按接送顺序计算路程
             for order_id in order_ids:
                 order = self.order_id_map[order_id]
-                # 空驶路程（加权）
+                # 空驶路程
                 empty_dist = cal_km_by_lon_lat(
                     current_lon, current_lat,
                     order.start_lon, order.start_lat
@@ -194,7 +191,7 @@ class PSOOrderMatcher:
         # 计算未分配订单数
         total_unassigned = self.n_orders - len(assigned_orders)
 
-        # ========== 步骤2：对每个目标单独归一化 ==========
+        # ========== 对每个目标单独归一化 ==========
         norm_distance = self._normalize(
             total_weighted_distance, self.k_distance, self.max_distance_ref
         )
@@ -208,7 +205,7 @@ class PSOOrderMatcher:
             total_unassigned, self.k_unassigned, self.max_unassigned_ref
         )
 
-        # ========== 步骤3：多目标加权求和得到总适应度 ==========
+        # ========== 多目标加权求和得到总适应度 ==========
         total_fitness = (
             norm_distance * self.weight_distance +
             norm_imbalance * self.weight_imbalance +
@@ -218,8 +215,8 @@ class PSOOrderMatcher:
 
         return total_fitness
 
-    def _update_velocity_position(self, particle_idx: int):
-        """更新粒子位置（离散分配问题的概率性更新）"""
+    def _update_velocity_position(self, particle_idx):
+        """更新粒子位置"""
         current_p = self.particles[particle_idx]
         pbest_p = self.pbest[particle_idx]
 
@@ -234,8 +231,8 @@ class PSOOrderMatcher:
             if soc_prob > 0.5 and self.gbest is not None:
                 current_p[order_id] = self.gbest[order_id]
 
-    def optimize(self) -> Tuple[Dict[str, str], float]:
-        """执行PSO优化，返回最优匹配和适应度"""
+    def optimize(self):
+        """执行PSO优化,返回最优匹配和适应度"""
         self._initialize_particles()
 
         for _ in range(self.max_iter):
@@ -272,19 +269,19 @@ def main():
     # 子群PSO匹配
     all_results = {}
     for subgroup_id, (sub_orders, sub_cars) in subgroups.items():
-        print(f"\n处理子群 {subgroup_id}：{len(sub_orders)}订单，{len(sub_cars)}车辆")
+        print(f"\n处理子群 {subgroup_id}:{len(sub_orders)}订单，{len(sub_cars)}车辆")
         if not sub_orders or not sub_cars:
             print("子群无订单/车辆，跳过")
             continue
 
-        # 初始化PSO匹配器（自定义多目标权重和k值）
+        # 初始化PSO匹配器
         pso_matcher = PSOOrderMatcher(
             sub_orders, sub_cars,
             w=0.7, c1=1.2, c2=1.2,
             max_iter=100, pop_size=50,
-            # 归一化k值（可根据需求调整）
+            # 归一化k值
             k_distance=0.001, k_imbalance=0.5, k_carpool=0.8, k_unassigned=1.0,
-            # 多目标权重（核心优先路程，其次分配均衡）
+            # 多目标权重
             weight_distance=0.5, weight_imbalance=0.2, weight_carpool=0.2, weight_unassigned=0.1,
             empty_weight=1.5  # 空驶路程权重
         )

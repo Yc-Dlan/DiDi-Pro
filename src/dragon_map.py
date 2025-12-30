@@ -288,6 +288,7 @@ class HybridPathPlanner:
         car_assignments = {}  # 车辆 -> 用户
         available_cars = set(cars)  # 可用的车辆集合
         
+        # 为每个用户计算所有可能车辆的总距离
         all_possible_matches = []
         
         for user in users:

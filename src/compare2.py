@@ -8,27 +8,26 @@ from Car_generate import NetCarLocation, generate_netcar_locations, CAR_NUM
 from Distance_transfer import cal_km_by_lon_lat
 from K_means import TaxiCarClusterMatcher
 
-# ===================== PSO Core Class (Unchanged Logic, Hyperparameter Tuning Adaptation) =====================
 class PSOOrderMatcher:
     """Particle Swarm Optimization for Order Dispatching (Hyperparameter Tuning Version)"""
     def __init__(
         self,
-        subgroup_orders: List[TaxiOrder],
-        subgroup_cars: List[NetCarLocation],
-        w: float = 0.7,
-        c1: float = 1.2,
-        c2: float = 1.2,
-        max_iter: int = 100,
-        pop_size: int = 50,
-        k_distance: float = 0.001,
-        k_imbalance: float = 0.5,
-        k_carpool: float = 0.8,
-        k_unassigned: float = 1.0,
-        weight_distance: float = 0.5,
-        weight_imbalance: float = 0.2,
-        weight_carpool: float = 0.2,
-        weight_unassigned: float = 0.1,
-        empty_weight: float = 1.5
+        subgroup_orders,
+        subgroup_cars,
+        w = 0.7,
+        c1 = 1.2,
+        c2 = 1.2,
+        max_iter = 100,
+        pop_size = 50,
+        k_distance = 0.001,
+        k_imbalance = 0.5,
+        k_carpool = 0.8,
+        k_unassigned = 1.0,
+        weight_distance = 0.5,
+        weight_imbalance = 0.2,
+        weight_carpool = 0.2,
+        weight_unassigned = 0.1,
+        empty_weight = 1.5
     ):
         self.orders = subgroup_orders
         self.cars = subgroup_cars
@@ -67,7 +66,7 @@ class PSOOrderMatcher:
         self.max_carpool_ref = 4
         self.max_unassigned_ref = self.n_orders
 
-    def _calc_max_distance_ref(self) -> float:
+    def _calc_max_distance_ref(self):
         if self.n_orders == 0: return 1.0
         total = 0.0
         for order in self.orders:
@@ -77,7 +76,7 @@ class PSOOrderMatcher:
             total += empty_max * self.empty_weight + ride
         return total
 
-    def _normalize(self, x: float, k: float, max_ref: float) -> float:
+    def _normalize(self, x, k, max_ref):
         if max_ref == 0 or x <= 0: return 0.0
         normalized_x = x / max_ref
         return 1 - np.exp(-k * normalized_x)
@@ -89,7 +88,7 @@ class PSOOrderMatcher:
             self.pbest.append(particle.copy())
             self.pbest_fitness.append(float('inf'))
 
-    def _calculate_fitness(self, particle: Dict[str, str]) -> float:
+    def _calculate_fitness(self, particle):
         total_weighted_distance = 0.0;total_imbalance=0.0;total_carpool_exceed=0.0;total_unassigned=0.0
         car_order_map = defaultdict(list)
         for oid, cid in particle.items(): car_order_map[cid].append(oid)
@@ -119,7 +118,7 @@ class PSOOrderMatcher:
         norm_u = self._normalize(total_unassigned, self.k_unassigned, self.max_unassigned_ref)
         return norm_d*self.weight_distance + norm_i*self.weight_imbalance + norm_c*self.weight_carpool + norm_u*self.weight_unassigned
 
-    def _update_velocity_position(self, particle_idx: int):
+    def _update_velocity_position(self, particle_idx):
         current_p = self.particles[particle_idx];pbest_p = self.pbest[particle_idx]
         for oid in self.order_ids:
             r1, r2 = np.random.random(), np.random.random()
@@ -127,7 +126,7 @@ class PSOOrderMatcher:
             if cog_prob > 0.5: current_p[oid] = pbest_p[oid]
             if soc_prob > 0.5 and self.gbest is not None: current_p[oid] = self.gbest[oid]
 
-    def optimize(self) -> Tuple[Dict[str, str], float]:
+    def optimize(self):
         self._initialize_particles();self.gbest_fitness_history = []
         for _ in range(self.max_iter):
             current_gbest = float('inf');current_gbest_particle = None
@@ -140,8 +139,7 @@ class PSOOrderMatcher:
             for i in range(self.pop_size): self._update_velocity_position(i)
         return self.gbest, self.gbest_fitness
 
-# ===================== Unified Performance Calculation Function (Fair Comparison) =====================
-def calculate_performance(matching_result: Dict[str, str], all_orders: List[TaxiOrder], all_cars: List[NetCarLocation]) -> Dict:
+def calculate_performance(matching_result, all_orders, all_cars):
     """Unified Calculation: Total Distance, Empty Rate, Order Completion Rate, Empty Distance, Ride Distance"""
     car_order_map = defaultdict(list)
     for oid, cid in matching_result.items(): car_order_map[cid].append(oid)
@@ -174,7 +172,6 @@ def calculate_performance(matching_result: Dict[str, str], all_orders: List[Taxi
         "Order Completion Rate (%)": order_complete_rate
     }
 
-# ===================== Run PSO with Specific Hyperparameters =====================
 def run_pso_with_params(cluster_subgroups, w, c1, c2):
     """Run PSO dispatch with specific hyperparameters, return matching result + fitness + performance"""
     total_matching = {}
@@ -190,7 +187,6 @@ def run_pso_with_params(cluster_subgroups, w, c1, c2):
     avg_fitness = round(total_fitness / subgroup_count, 4) if subgroup_count>0 else 0.0
     return total_matching, avg_fitness
 
-# ===================== Visualization for PSO Hyperparameter Tuning (100% English Chart) =====================
 def plot_param_tune_result(tune_data):
     """Plot Hyperparameter Tuning Result: Total Travel Distance + Empty Rate Comparison (English Only)"""
     fig, (ax1, ax2) = plt.subplots(1,2, figsize=(18,7))
@@ -219,7 +215,6 @@ def plot_param_tune_result(tune_data):
     plt.tight_layout()
     plt.show()
 
-# ===================== Print PSO Hyperparameter Tuning Analysis Table (English) =====================
 def print_param_tune_table(tune_data):
     """Print PSO Hyperparameter Tuning Analysis Table - Structured, Copy to Excel Directly"""
     print("\n" + "="*130)
@@ -237,7 +232,6 @@ def print_param_tune_table(tune_data):
     print(f"✅ Optimal Performance: Total Distance = {best_param['Total Distance (km)']}km, Empty Rate = {best_param['Empty Rate (%)']}%")
     print("="*130)
 
-# ===================== Main: PSO Hyperparameter Tuning Experiment =====================
 if __name__ == "__main__":
     # 1. Fixed random seed for reproducible & fair comparison (Critical!)
     random.seed(666)
